@@ -21,7 +21,7 @@ builds:
         goarch: arm64
 
 archives:
-  - format: zip
+  - formats: ['zip']
     name_template: "terraform-provider-blastshield_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
