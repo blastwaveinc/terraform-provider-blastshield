@@ -25,12 +25,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/blastwaveinc/blastshield-tf/internal/provider"
-	"github.com/blastwaveinc/blastshield-tf/internal/provider/versions"
+	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider"
+	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versions"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 
 	// Import all version packages so their init() functions register them.
-	_ "github.com/blastwaveinc/blastshield-tf/internal/provider/versionimports"
+	_ "github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versionimports"
 )
 
 var (

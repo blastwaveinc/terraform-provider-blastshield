@@ -18,11 +18,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/blastwaveinc/blastshield-tf/internal/provider/versions"
+	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versions"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 
-	_ "github.com/blastwaveinc/blastshield-tf/internal/provider/versionimports"
+	_ "github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versionimports"
 )
 
 const (

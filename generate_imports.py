@@ -12,7 +12,7 @@ import sys
 def main():
     specs_dir = "openapi-specs"
     output_dir = "internal/provider/versionimports"
-    module = "github.com/blastwaveinc/blastshield-tf"
+    module = "github.com/blastwaveinc/terraform-provider-blastshield"
 
     if not os.path.isdir(specs_dir):
         print(f"Error: {specs_dir} directory not found", file=sys.stderr)

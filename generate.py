@@ -119,8 +119,10 @@ def to_go_name(name: str) -> str:
 
 
 def to_tf_name(name: str) -> str:
-    """Convert to snake_case for Terraform."""
-    return name.lower().replace("-", "_")
+    """Convert to snake_case for Terraform. Handles PascalCase, snake_case, and kebab-case."""
+    # Insert underscore before uppercase letters that follow a lowercase letter or digit
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', name)
+    return s.lower().replace("-", "_")
 
 
 def to_tf_plural_name(name: str) -> str:

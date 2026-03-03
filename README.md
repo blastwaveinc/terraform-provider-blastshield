@@ -13,8 +13,8 @@ Terraform provider for managing [Blastshield](https://blastwave.com) resources.
 ### From Source
 
 ```bash
-git clone https://github.com/blastwaveinc/blastshield-tf.git
-cd blastshield-tf
+git clone https://github.com/blastwaveinc/terraform-provider-blastshield.git
+cd terraform-provider-blastshield
 
 # Replace openapi.json with the version matching your BlastShield environment
 # You can export it from your Blastshield orchestrator at https://<orchestrator_hostname>:8000/openapi.json

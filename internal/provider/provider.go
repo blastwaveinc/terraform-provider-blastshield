@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/blastwaveinc/blastshield-tf/internal/provider/versions"
+	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versions"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"

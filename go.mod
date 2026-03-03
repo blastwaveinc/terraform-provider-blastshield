@@ -1,4 +1,4 @@
-module github.com/blastwaveinc/blastshield-tf
+module github.com/blastwaveinc/terraform-provider-blastshield
 
 go 1.24.11
 
