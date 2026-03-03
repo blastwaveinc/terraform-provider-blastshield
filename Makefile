@@ -2,7 +2,7 @@ HOSTNAME=registry.terraform.io
 NAMESPACE=blastwaveinc
 NAME=blastshield
 BINARY=terraform-provider-${NAME}
-VERSION=1.13.0
+VERSION=$(shell git describe --tags --always | sed 's/^v//')
 OS_ARCH=$(shell go env GOOS)_$(shell go env GOARCH)
 
 # Test configuration - override these via environment variables
