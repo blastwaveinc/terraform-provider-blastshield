@@ -1,5 +1,11 @@
 # Blastshield Terraform Provider
 
+[![Terraform Registry](https://img.shields.io/badge/terraform-registry-blueviolet?logo=terraform)](https://registry.terraform.io/providers/blastwaveinc/blastshield/latest)
+[![CI](https://github.com/blastwaveinc/terraform-provider-blastshield/actions/workflows/test.yml/badge.svg)](https://github.com/blastwaveinc/terraform-provider-blastshield/actions/workflows/test.yml)
+[![Release](https://github.com/blastwaveinc/terraform-provider-blastshield/actions/workflows/release.yml/badge.svg)](https://github.com/blastwaveinc/terraform-provider-blastshield/actions/workflows/release.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/blastwaveinc/terraform-provider-blastshield)](https://github.com/blastwaveinc/terraform-provider-blastshield/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/blastwaveinc/terraform-provider-blastshield)](https://github.com/blastwaveinc/terraform-provider-blastshield/blob/main/LICENSE)
+
 Terraform provider for managing [Blastshield](https://blastwave.com) resources.
 
 - [Documentation](https://registry.terraform.io/providers/blastwaveinc/blastshield/latest/docs)
