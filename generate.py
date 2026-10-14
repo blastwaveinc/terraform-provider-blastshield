@@ -482,19 +482,21 @@ def main():
                 if f.nested_ref not in nested_types:
                     nested_types[f.nested_ref] = f.nested_fields
 
-    # Check if resources have tags (for test generation)
+    # Check if resources have tags (for default_tags support and test generation)
     for r in resources:
         r.has_tags = any(f.json_name == "tags" for f in r.create_fields)
 
     # Generate shared files
     has_groups = any(r.has_groups for r in resources)
+    has_tags = any(r.has_tags for r in resources)
     generated_files = [
         ("schemas.go.j2", os.path.join(output_dir, "schemas.go"), {"resources": resources, "package_name": package_name}),
         ("types.go.j2", os.path.join(output_dir, "types.go"), {"resources": resources, "nested_types": nested_types, "package_name": package_name}),
         ("client.go.j2", os.path.join(output_dir, "client.go"), {"package_name": package_name}),
-        ("helpers.go.j2", os.path.join(output_dir, "helpers.go"), {"has_groups": has_groups, "package_name": package_name}),
+        ("helpers.go.j2", os.path.join(output_dir, "helpers.go"), {"has_groups": has_groups, "has_tags": has_tags, "package_name": package_name}),
         ("register.go.j2", os.path.join(output_dir, "register.go"), {"resources": resources, "api_version": api_version, "package_name": package_name}),
         ("test_helpers.go.j2", os.path.join(output_dir, "test_helpers_test.go"), {"package_name": package_name}),
+        ("helpers_test.go.j2", os.path.join(output_dir, "helpers_test.go"), {"has_tags": has_tags, "package_name": package_name}),
         ("resource_test.go.j2", os.path.join(output_dir, "resources_test.go"), {"resources": resources, "package_name": package_name}),
     ]
     for template_name, output_path, context in generated_files:
@@ -510,6 +512,9 @@ def main():
         nullable_required = set(NULLABLE_REQUIRED_FIELDS.get(r.name, []))
         required_fields = [f for f in r.create_fields if f.required and not f.is_nested and f.json_name not in nullable_required]
         optional_fields = [f for f in r.create_fields if not f.required and not f.is_nested and f.json_name not in nullable_required]
+        if r.has_tags:
+            # tags are sent merged with the provider default_tags, handled separately
+            optional_fields = [f for f in optional_fields if f.json_name != "tags"]
         nullable_required_fields = [f for f in r.create_fields if f.json_name in nullable_required]
         required_list_fields = [f for f in r.create_fields if f.required and f.is_list and not f.is_nested]
         nested_list_fields = [f for f in r.create_fields if f.is_nested and f.is_list and f.nested_fields]

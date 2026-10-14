@@ -49,12 +49,13 @@ resource "blastshield_event_log_rule" "failed_auth" {
 ### Optional
 
 - `email_recipients` (Set of String)
-- `tags` (Map of String)
+- `tags` (Map of String) Tags for the resource. Merged over the provider default_tags; on key conflicts these take precedence.
 
 ### Read-Only
 
 - `id` (Number) The ID of this resource.
 - `system_tags` (Map of String)
+- `tags_all` (Map of String) All tags on the resource: the provider default_tags merged with tags, where tags take precedence.
 
 <a id="nestedatt--conditions"></a>
 ### Nested Schema for `conditions`

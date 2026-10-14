@@ -21,6 +21,9 @@ type Client interface {
 	GetGroupsRaw(basePath string, id interface{}, result interface{}) error
 	// UpdateGroupsRaw updates group memberships - takes and returns raw data
 	UpdateGroupsRaw(basePath string, id interface{}, groups interface{}, result interface{}) error
+	// DefaultTags returns the provider-level default_tags. known is false when the
+	// provider configuration has not been resolved yet (e.g. it depends on another resource).
+	DefaultTags() (tags map[string]string, known bool)
 }
 
 // GroupMembership represents a group membership with expiry

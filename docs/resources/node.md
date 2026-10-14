@@ -46,7 +46,7 @@ resource "blastshield_node" "gateway" {
 - `ha_active` (String)
 - `master` (String)
 - `public_key` (String)
-- `tags` (Map of String)
+- `tags` (Map of String) Tags for the resource. Merged over the provider default_tags; on key conflicts these take precedence.
 
 ### Read-Only
 
@@ -56,6 +56,7 @@ resource "blastshield_node" "gateway" {
 - `idp_username` (String)
 - `invitation` (String, Sensitive) Base64-encoded JSON of the POST response (contains registration info).
 - `system_tags` (Map of String)
+- `tags_all` (Map of String) All tags on the resource: the provider default_tags merged with tags, where tags take precedence.
 
 <a id="nestedatt--groups"></a>
 ### Nested Schema for `groups`

@@ -15,6 +15,12 @@ Terraform provider for managing Blastshield resources.
 provider "blastshield" {
   host  = "https://blastshield.example.com"
   token = var.blastshield_token
+
+  # Optional: tags applied to every resource that supports tags.
+  # Resource-level tags take precedence on key conflicts.
+  default_tags = {
+    managed_by = "terraform"
+  }
 }
 ```
 
@@ -23,5 +29,6 @@ provider "blastshield" {
 
 ### Optional
 
+- `default_tags` (Map of String) Tags applied to all resources that support tags. Resource-level tags take precedence on key conflicts. The merged result is exposed in each resource's tags_all attribute.
 - `host` (String) The Blastshield API host URL. Can also be set via the BLASTSHIELD_HOST environment variable.
 - `token` (String, Sensitive) The Blastshield API token. Can also be set via the BLASTSHIELD_TOKEN environment variable.

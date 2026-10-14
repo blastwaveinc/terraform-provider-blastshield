@@ -42,7 +42,7 @@ resource "blastshield_group" "web_servers" {
 
 ### Optional
 
-- `tags` (Map of String)
+- `tags` (Map of String) Tags for the resource. Merged over the provider default_tags; on key conflicts these take precedence.
 
 ### Read-Only
 
@@ -50,6 +50,7 @@ resource "blastshield_group" "web_servers" {
 - `idp_externalid` (String)
 - `idp_provisioned` (Boolean)
 - `system_tags` (Map of String)
+- `tags_all` (Map of String) All tags on the resource: the provider default_tags merged with tags, where tags take precedence.
 
 <a id="nestedatt--endpoints"></a>
 ### Nested Schema for `endpoints`

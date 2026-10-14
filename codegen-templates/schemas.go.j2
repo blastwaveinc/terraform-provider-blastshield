@@ -54,6 +54,14 @@ type {{ resource.name }}Model struct {
 {% endif %}
 }
 
+// {{ resource.name }}ResourceModel extends {{ resource.name }}Model with resource-only attributes.
+type {{ resource.name }}ResourceModel struct {
+	{{ resource.name }}Model
+{% if resource.has_tags %}
+	TagsAll types.Map `tfsdk:"tags_all"`
+{% endif %}
+}
+
 func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schema {
 	return resourceschema.Schema{
 		Description: "Manages a Blastshield {{ resource.tf_name }}.",
@@ -112,6 +120,9 @@ func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schem
 {% if field.json_name == "id" and field.computed %}
 				PlanModifiers: []planmodifier.{{ field.tf_type }}{ {{ field.tf_type | lower }}planmodifier.UseStateForUnknown() },
 {% endif %}
+{% if resource.has_tags and field.json_name == "tags" %}
+				Description: "Tags for the resource. Merged over the provider default_tags; on key conflicts these take precedence.",
+{% endif %}
 			},
 {% endif %}
 {% endfor %}
@@ -121,6 +132,13 @@ func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schem
 				PlanModifiers: []planmodifier.String{ stringplanmodifier.UseStateForUnknown() },
 				Sensitive: true,
 				Description: "Base64-encoded JSON of the POST response (contains registration info).",
+			},
+{% endif %}
+{% if resource.has_tags %}
+			"tags_all": resourceschema.MapAttribute{
+				ElementType: types.StringType,
+				Computed: true,
+				Description: "All tags on the resource: the provider default_tags merged with tags, where tags take precedence.",
 			},
 {% endif %}
 {% if resource.has_groups %}

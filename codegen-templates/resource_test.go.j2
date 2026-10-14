@@ -392,4 +392,101 @@ resource "blastshield_policy" "test" {
 {{ test_tags("Policy") }}}
 `, suffix, port, endpointName, mac{% if tagged %}, TestTag{% endif %})
 }
+
 {% endif -%}
+{% for resource in resources if resource.name == "Service" and resource.has_tags -%}
+// Provider default_tags tests
+
+func TestAccProviderDefaultTags(t *testing.T) {
+	name := fmt.Sprintf("test-default-tags-%s", randomSuffix())
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Default tags are merged into tags_all; resource tags win on conflicts
+			{
+				Config: testAccProviderDefaultTagsConfig(name, `
+    managed_by = "terraform"
+    test       = "overridden"
+`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags.%", "1"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags.test", TestTag),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.%", "2"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.managed_by", "terraform"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.test", TestTag),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags.%", "0"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags_all.%", "2"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags_all.managed_by", "terraform"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags_all.test", "overridden"),
+				),
+			},
+			// Import splits default tags back out of tags
+			{
+				Config:            testAccProviderDefaultTagsConfig(name, `    managed_by = "terraform"`),
+				ResourceName:      "blastshield_service.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Changing a default tag updates tags_all only, also on resources without
+			// tags, and removing one (test) drops it there
+			{
+				Config: testAccProviderDefaultTagsConfig(name, `    managed_by = "terraform-updated"`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags.%", "1"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.%", "2"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.managed_by", "terraform-updated"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags.%", "0"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags_all.%", "1"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags_all.managed_by", "terraform-updated"),
+				),
+			},
+			// Removing default tags removes them from the resource
+			{
+				Config: testAccProviderDefaultTagsConfig(name, ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags.%", "1"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.%", "1"),
+					resource.TestCheckResourceAttr("blastshield_service.test", "tags_all.test", TestTag),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags.%", "0"),
+					resource.TestCheckResourceAttr("blastshield_service.untagged", "tags_all.%", "0"),
+				),
+			},
+		},
+	})
+}
+
+func testAccProviderDefaultTagsConfig(name, defaultTags string) string {
+	return fmt.Sprintf(`
+provider "blastshield" {
+  default_tags = {
+%[3]s
+  }
+}
+
+resource "blastshield_service" "test" {
+  name = %[1]q
+  protocols = [
+    {
+      ip_protocol = 6
+      ports = ["80"]
+    }
+  ]
+  tags = {
+    test = %[2]q
+  }
+}
+
+# No tags: only the provider default_tags apply
+resource "blastshield_service" "untagged" {
+  name = "%[1]s-untagged"
+  protocols = [
+    {
+      ip_protocol = 6
+      ports = ["81"]
+    }
+  ]
+}
+`, name, TestTag, defaultTags)
+}
+{% endfor -%}

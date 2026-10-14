@@ -8,6 +8,9 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+{% if has_tags %}
+	"github.com/hashicorp/terraform-plugin-framework/path"
+{% endif %}
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -96,5 +99,143 @@ func groupsToTerraformList(ctx context.Context, groups []GroupMembership) (types
 	}
 
 	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: groupMembershipAttrTypes()}, values)
+}
+{% endif %}
+{% if has_tags %}
+
+// mergeTags returns the provider default tags overlaid with the resource tags.
+// Resource tags take precedence on key conflicts.
+func mergeTags(defaults, resourceTags map[string]string) map[string]string {
+	merged := make(map[string]string, len(defaults)+len(resourceTags))
+	for k, v := range defaults {
+		merged[k] = v
+	}
+	for k, v := range resourceTags {
+		merged[k] = v
+	}
+	return merged
+}
+
+// resourceTagsFromAPI derives the resource-level tags from the tags stored by the
+// API, which include the provider default tags. A key belongs to the resource if it
+// was previously tracked in the resource tags. An untracked key that was in the
+// prior tags_all came from the default tags at the time, even if the defaults have
+// changed since. Any other key belongs to the resource unless it matches a current
+// default tag. priorTags and priorTagsAll are nil when there is no prior value (e.g.
+// after import). When the defaults are not known, only previously tracked keys are
+// kept.
+func resourceTagsFromAPI(apiTags, priorTags, priorTagsAll, defaults map[string]string, defaultsKnown bool) map[string]string {
+	tags := make(map[string]string, len(apiTags))
+	for k, v := range apiTags {
+		if _, tracked := priorTags[k]; !tracked {
+			if _, fromDefaults := priorTagsAll[k]; fromDefaults {
+				continue
+			}
+			if !defaultsKnown && priorTags != nil {
+				continue
+			}
+			if dv, ok := defaults[k]; ok && dv == v {
+				continue
+			}
+		}
+		tags[k] = v
+	}
+	return tags
+}
+
+// isFullyKnown reports whether a map and all of its elements are known.
+func isFullyKnown(m types.Map) bool {
+	if m.IsUnknown() {
+		return false
+	}
+	for _, v := range m.Elements() {
+		if v.IsUnknown() {
+			return false
+		}
+	}
+	return true
+}
+
+// effectiveTags returns the tags to send to the API: the provider default tags
+// merged with the planned resource tags.
+func effectiveTags(ctx context.Context, client Client, tags types.Map, diags *diag.Diagnostics) map[string]string {
+	resourceTags := make(map[string]string)
+	if !tags.IsNull() && !tags.IsUnknown() {
+		diags.Append(tags.ElementsAs(ctx, &resourceTags, false)...)
+	}
+	defaults, _ := client.DefaultTags()
+	return mergeTags(defaults, resourceTags)
+}
+
+// resourceTagsValue derives the resource-level tags from tagsAll (the tags stored
+// by the API), given the previous resource tags and tags_all.
+func resourceTagsValue(ctx context.Context, client Client, tagsAll types.Map, prior types.Map, priorAll types.Map, diags *diag.Diagnostics) types.Map {
+	var all map[string]string
+	diags.Append(tagsAll.ElementsAs(ctx, &all, false)...)
+
+	priorTags := knownTags(ctx, prior, diags)
+	priorTagsAll := knownTags(ctx, priorAll, diags)
+
+	var defaults map[string]string
+	defaultsKnown := false
+	if client != nil {
+		defaults, defaultsKnown = client.DefaultTags()
+	}
+
+	tags, d := types.MapValueFrom(ctx, types.StringType, resourceTagsFromAPI(all, priorTags, priorTagsAll, defaults, defaultsKnown))
+	diags.Append(d...)
+	return tags
+}
+
+// knownTags returns the elements of a tags map, or nil when it is null or not fully known.
+func knownTags(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]string {
+	if m.IsNull() || !isFullyKnown(m) {
+		return nil
+	}
+	tags := make(map[string]string)
+	diags.Append(m.ElementsAs(ctx, &tags, false)...)
+	return tags
+}
+
+// planTagsAll computes the planned tags and tags_all for a resource. Resource
+// tags left out of the configuration are not managed: the last known value is
+// kept instead of becoming unknown. On create they stay unknown, as the API may
+// store tags beyond the defaults.
+func planTagsAll(ctx context.Context, client Client, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Nothing to plan on destroy
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var tags types.Map
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("tags"), &tags)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags.IsNull() {
+		if req.State.Raw.IsNull() {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("tags_all"), types.MapUnknown(types.StringType))...)
+			return
+		}
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("tags"), &tags)...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("tags"), tags)...)
+	}
+
+	tagsAll := types.MapUnknown(types.StringType)
+	var defaults map[string]string
+	defaultsKnown := false
+	if client != nil {
+		defaults, defaultsKnown = client.DefaultTags()
+	}
+	if defaultsKnown && isFullyKnown(tags) {
+		resourceTags := make(map[string]string)
+		if !tags.IsNull() {
+			resp.Diagnostics.Append(tags.ElementsAs(ctx, &resourceTags, false)...)
+		}
+		var d diag.Diagnostics
+		tagsAll, d = types.MapValueFrom(ctx, types.StringType, mergeTags(defaults, resourceTags))
+		resp.Diagnostics.Append(d...)
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("tags_all"), tagsAll)...)
 }
 {% endif %}
