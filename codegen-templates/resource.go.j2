@@ -24,6 +24,7 @@ import (
 
 var _ resource.Resource = &{{ resource.name }}Resource{}
 var _ resource.ResourceWithImportState = &{{ resource.name }}Resource{}
+var _ resource.ResourceWithModifyPlan = &{{ resource.name }}Resource{}
 
 func New{{ resource.name }}Resource() resource.Resource {
 	return &{{ resource.name }}Resource{}
@@ -385,7 +386,7 @@ func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	// Get state data for ID (computed fields aren't in the plan)
+	// Get prior state for ID and invitation
 	var stateData {{ resource.name }}Model
 	response.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
@@ -436,6 +437,19 @@ func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.U
 {% endif %}
 
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
+}
+
+// ModifyPlan keeps the prior state when no configured attribute changes, so that
+// unconfigured computed attributes don't go unknown and plan an empty update.
+func (r *{{ resource.name }}Resource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	unchanged, err := planUnchanged(req)
+	if err != nil {
+		resp.Diagnostics.AddError("Plan Error", fmt.Sprintf("Unable to compare plan with state: %s", err))
+		return
+	}
+	if unchanged {
+		resp.Plan.Raw = req.State.Raw
+	}
 }
 
 func (r *{{ resource.name }}Resource) Delete(ctx context.Context, req resource.DeleteRequest, response *resource.DeleteResponse) {
