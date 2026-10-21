@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from jinja2 import Environment, FileSystemLoader
 
 # Configuration - skip these tags/resources
-SKIP_TAGS = {"API Keys", "Audit", "APIKeys"}  # API keys don't make sense in Terraform
+SKIP_TAGS = {"API Keys", "Audit", "APIKeys", "Users"}  # API keys and users are not managed with Terraform
 
 # Defaults
 DEFAULT_SPEC = "openapi.json"
