@@ -27,7 +27,7 @@ import (
 
 const (
 	// Default test configuration - can be overridden by environment variables
-	defaultTestHost  = "http://localhost:4999"
+	defaultTestHost  = "http://localhost:5000"
 	defaultTestToken = "dev"
 
 	// Tag used to identify test-created resources for cleanup

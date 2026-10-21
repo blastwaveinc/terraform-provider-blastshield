@@ -5,7 +5,7 @@
 # Don't exit on error - we want to try all resource types even if one fails
 set +e
 
-BLASTSHIELD_HOST="${BLASTSHIELD_HOST:-http://localhost:4999}"
+BLASTSHIELD_HOST="${BLASTSHIELD_HOST:-http://localhost:5000}"
 BLASTSHIELD_TOKEN="${BLASTSHIELD_TOKEN:-dev}"
 
 # Debug mode

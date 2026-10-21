@@ -6,7 +6,7 @@ VERSION=$(shell git describe --tags --always | sed 's/^v//')
 OS_ARCH=$(shell go env GOOS)_$(shell go env GOARCH)
 
 # Test configuration - override these via environment variables
-BLASTSHIELD_HOST ?= http://localhost:4999
+BLASTSHIELD_HOST ?= http://localhost:5000
 BLASTSHIELD_TOKEN ?= dev
 
 default: install

@@ -173,7 +173,7 @@ make testacc-version-v1_13_0-resource-Node
 ### Test Configuration
 
 Tests require:
-- `BLASTSHIELD_HOST` environment variable (defaults to `http://localhost:4999`)
+- `BLASTSHIELD_HOST` environment variable (defaults to `http://localhost:5000`, the public API; never point the provider at port 4999, which is the private API)
 - `BLASTSHIELD_TOKEN` environment variable (defaults to `dev`)
 - `TF_ACC=1` environment variable to enable acceptance tests
 
