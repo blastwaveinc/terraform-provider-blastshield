@@ -2,6 +2,10 @@
 
 package {{ package_name }}
 
+{% set names = resources | map(attribute="name") | list %}
+{% set plan_stability_resources = ["Node", "Endpoint", "Group", "Service", "Policy"] %}
+{% set has_plan_stability = plan_stability_resources | reject("in", names) | list | length == 0 %}
+{% set tagged = resources | selectattr("has_tags") | map(attribute="name") | select("in", plan_stability_resources) | list %}
 import (
 	"fmt"
 	"math/rand"
@@ -9,6 +13,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+{% if has_plan_stability %}
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+{% endif %}
 )
 
 func init() {
@@ -263,3 +270,126 @@ resource "blastshield_{{ resource.tf_name }}" "test" {
 }
 
 {% endfor -%}
+{% if has_plan_stability -%}
+{% macro test_tags(name) %}{% if name in tagged %}
+  tags = {
+    test = %[5]q
+  }
+{% endif %}{% endmacro -%}
+// Cross-resource plan stability tests
+//
+// The testing framework already fails a step whose plan is not empty after
+// apply. These steps add the scenarios that expose plan instability: group
+// membership owned by blastshield_group while the endpoint leaves groups unset,
+// and in-place updates of a resource that others reference, which must not
+// plan changes for the resources referencing it.
+
+func TestAccPlanStability_crossResource(t *testing.T) {
+	suffix := randomSuffix()
+	// Random locally administered MAC, so concurrent runs (e.g. per-version packages) don't collide
+	mac := fmt.Sprintf("02:00:00:%02x:%02x:%02x", rand.Intn(256), rand.Intn(256), rand.Intn(256))
+	unchanged := func(addrs ...string) []plancheck.PlanCheck {
+		checks := make([]plancheck.PlanCheck, len(addrs))
+		for i, addr := range addrs {
+			checks[i] = plancheck.ExpectResourceAction(addr, plancheck.ResourceActionNoop)
+		}
+		return checks
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Converge: the post-apply plan must be empty
+			{
+				Config: testAccPlanStabilityConfig(suffix, "80", "test-plan-ep-"+suffix, mac),
+			},
+			// Updating a referenced service must not ripple into the policy
+			{
+				Config: testAccPlanStabilityConfig(suffix, "443", "test-plan-ep-"+suffix, mac),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: append(
+						[]plancheck.PlanCheck{plancheck.ExpectResourceAction("blastshield_service.test", plancheck.ResourceActionUpdate)},
+						unchanged(
+							"blastshield_node.gateway",
+							"blastshield_endpoint.test",
+							"blastshield_group.members",
+							"blastshield_group.other",
+							"blastshield_policy.test",
+						)...,
+					),
+				},
+			},
+			// Updating a group member endpoint must not ripple into the group or policy
+			{
+				Config: testAccPlanStabilityConfig(suffix, "443", "test-plan-ep-"+suffix+"-renamed", mac),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: append(
+						[]plancheck.PlanCheck{plancheck.ExpectResourceAction("blastshield_endpoint.test", plancheck.ResourceActionUpdate)},
+						unchanged(
+							"blastshield_node.gateway",
+							"blastshield_service.test",
+							"blastshield_group.members",
+							"blastshield_group.other",
+							"blastshield_policy.test",
+						)...,
+					),
+				},
+			},
+		},
+	})
+}
+
+func testAccPlanStabilityConfig(suffix, port, endpointName, mac string) string {
+	return testAccProviderConfig() + fmt.Sprintf(`
+resource "blastshield_node" "gateway" {
+  name = "test-plan-gw-%[1]s"
+  node_type = "G"  # Gateway (required for endpoints)
+  endpoint_mode = "M"  # MAC address mode (required for gateways)
+{{ test_tags("Node") }}}
+
+# groups is intentionally unset: membership is owned by blastshield_group.members
+resource "blastshield_endpoint" "test" {
+  name = %[3]q
+  node_id = blastshield_node.gateway.id
+  enabled = true
+  endpoint = %[4]q
+{{ test_tags("Endpoint") }}}
+
+resource "blastshield_group" "members" {
+  name = "test-plan-members-%[1]s"
+  endpoints = [
+    {
+      id = blastshield_endpoint.test.id
+      expires = 0
+    }
+  ]
+  users = []
+{{ test_tags("Group") }}}
+
+resource "blastshield_group" "other" {
+  name = "test-plan-other-%[1]s"
+  endpoints = []
+  users = []
+{{ test_tags("Group") }}}
+
+resource "blastshield_service" "test" {
+  name = "test-plan-service-%[1]s"
+  protocols = [
+    {
+      ip_protocol = 6
+      ports = [%[2]q]
+    }
+  ]
+{{ test_tags("Service") }}}
+
+resource "blastshield_policy" "test" {
+  name = "test-plan-policy-%[1]s"
+  enabled = true
+  log = false
+  from_groups = [blastshield_group.members.id]
+  to_groups = [blastshield_group.other.id]
+  services = [blastshield_service.test.id]
+{{ test_tags("Policy") }}}
+`, suffix, port, endpointName, mac{% if tagged %}, TestTag{% endif %})
+}
+{% endif -%}
