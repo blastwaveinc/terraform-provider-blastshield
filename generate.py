@@ -77,6 +77,12 @@ class FieldInfo:
     nested_fields: list = field(default_factory=list)
     nested_ref: str = ""
     description: str = ""
+    clear_when_unset: bool = False  # Update sends null when unset in config
+
+    @property
+    def is_object(self) -> bool:
+        """A single nested object (as opposed to a list of nested objects)."""
+        return self.is_nested and not self.is_list and bool(self.nested_fields)
 
 
 @dataclass
@@ -173,6 +179,10 @@ def parse_openapi_type(prop: dict, name: str, schemas: dict) -> FieldInfo:
             for nested_name, nested_prop in nested_props.items():
                 nested_field = parse_openapi_type(nested_prop, nested_name, schemas)
                 nested_field.required = nested_name in nested_required
+                # Object attributes are limited to scalars and lists of scalars
+                if nested_field.is_nested or nested_field.is_map:
+                    print(f"  Note: skipping {ref_name}.{nested_name} (nested objects within objects are not supported)")
+                    continue
                 field_info.nested_fields.append(nested_field)
         return field_info
 
@@ -408,9 +418,15 @@ def find_resources(spec: dict) -> list[ResourceInfo]:
                 fld.required = True
             elif fld.json_name in create_field_names:
                 fld.optional = True
-                fld.computed = True
+                # A nullable object is cleared by removing it from the config, so it is
+                # not computed: an unset object is planned and sent as null
+                fld.computed = not (fld.is_object and fld.is_pointer)
             else:
                 fld.computed = True
+
+        optional_only = {f.json_name for f in fields if f.optional and not f.computed}
+        for fld in create_fields:
+            fld.clear_when_unset = fld.json_name in optional_only
 
         has_groups = name in RESOURCES_WITH_GROUPS
         store_post_response = name in STORE_POST_RESPONSE
@@ -470,17 +486,16 @@ def main():
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
-    # Collect nested types for types.go
+    # Collect nested types for types.go, and single nested object types for helpers.go
     nested_types = {}
+    object_types = {}
     for r in resources:
-        for f in r.fields:
-            if f.is_nested and f.is_list and f.nested_fields and f.nested_ref:
+        for f in r.fields + r.create_fields:
+            if f.is_nested and f.nested_fields and f.nested_ref:
                 if f.nested_ref not in nested_types:
                     nested_types[f.nested_ref] = f.nested_fields
-        for f in r.create_fields:
-            if f.is_nested and f.is_list and f.nested_fields and f.nested_ref:
-                if f.nested_ref not in nested_types:
-                    nested_types[f.nested_ref] = f.nested_fields
+                if f.is_object and f.nested_ref not in object_types:
+                    object_types[f.nested_ref] = f.nested_fields
 
     # Check if resources have tags (for default_tags support and test generation)
     for r in resources:
@@ -493,7 +508,7 @@ def main():
         ("schemas.go.j2", os.path.join(output_dir, "schemas.go"), {"resources": resources, "package_name": package_name}),
         ("types.go.j2", os.path.join(output_dir, "types.go"), {"resources": resources, "nested_types": nested_types, "package_name": package_name}),
         ("client.go.j2", os.path.join(output_dir, "client.go"), {"package_name": package_name}),
-        ("helpers.go.j2", os.path.join(output_dir, "helpers.go"), {"has_groups": has_groups, "has_tags": has_tags, "package_name": package_name}),
+        ("helpers.go.j2", os.path.join(output_dir, "helpers.go"), {"has_groups": has_groups, "has_tags": has_tags, "object_types": object_types, "package_name": package_name}),
         ("register.go.j2", os.path.join(output_dir, "register.go"), {"resources": resources, "api_version": api_version, "package_name": package_name}),
         ("test_helpers.go.j2", os.path.join(output_dir, "test_helpers_test.go"), {"package_name": package_name}),
         ("helpers_test.go.j2", os.path.join(output_dir, "helpers_test.go"), {"has_tags": has_tags, "package_name": package_name}),
@@ -518,6 +533,7 @@ def main():
         nullable_required_fields = [f for f in r.create_fields if f.json_name in nullable_required]
         required_list_fields = [f for f in r.create_fields if f.required and f.is_list and not f.is_nested]
         nested_list_fields = [f for f in r.create_fields if f.is_nested and f.is_list and f.nested_fields]
+        object_fields = [f for f in r.create_fields if f.is_object]
 
         has_nested_list_fields = (
             any(f.is_nested and f.is_list and f.nested_fields for f in r.fields) or
@@ -537,6 +553,7 @@ def main():
             nullable_required_fields=nullable_required_fields,
             required_list_fields=required_list_fields,
             nested_list_fields=nested_list_fields,
+            object_fields=object_fields,
             has_nested_list_fields=has_nested_list_fields,
             id_value_method=id_value_method,
             id_format=id_format,

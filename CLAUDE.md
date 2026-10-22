@@ -100,6 +100,8 @@ The generator automatically handles nested object arrays from the OpenAPI spec:
 
 These are generated as `ListNestedAttribute` in Terraform schemas with proper type handling for both reading from API responses and writing to API requests.
 
+Single nested objects (a `$ref` to an object schema, e.g. **DeviceSecurityPosture.windows_attr** or the computed **Node.device_attr**) are generated as `SingleNestedAttribute`, with `{Type}ToObject`/`{Type}FromObject` conversions in `helpers.go`. Their attributes are limited to scalars and lists of scalars; deeper nesting (e.g. `DeviceAttributes.antivirus`) is skipped with a note during generation. Unset attributes of a configured object are sent as null. Optional nullable objects are not computed: removing one from the configuration sends null, clearing it on the server.
+
 ## Build Commands
 
 ```bash

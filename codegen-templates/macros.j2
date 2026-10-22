@@ -66,6 +66,10 @@
 {{ indent }}	response.Diagnostics.Append(diags...)
 {{ indent }}	{{ data_var }}.{{ f.name }} = {{ f.tf_name }}Val
 {{ indent }}}
+{% elif f.is_object %}
+{{ indent }}{{ f.tf_name }}Val, diags := {{ f.nested_ref }}ToObject(ctx, {% if not f.is_pointer %}&{% endif %}{{ resp_var }}.{{ f.name }})
+{{ indent }}response.Diagnostics.Append(diags...)
+{{ indent }}{{ data_var }}.{{ f.name }} = {{ f.tf_name }}Val
 {% elif f.is_nested %}
 {{ indent }}// TODO: Handle nested field {{ f.name }}
 {% elif f.is_pointer and not f.is_list and not f.is_map %}

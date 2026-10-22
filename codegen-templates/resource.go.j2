@@ -183,6 +183,13 @@ func (r *{{ resource.name }}Resource) Create(ctx context.Context, req resource.C
 {% if resource.has_tags %}
 	createReq.Tags = effectiveTags(ctx, r.client, data.Tags, &response.Diagnostics)
 {% endif %}
+{% for field in object_fields %}
+	if !data.{{ field.name }}.IsNull() && !data.{{ field.name }}.IsUnknown() {
+		{{ field.tf_name }}, diags := {{ field.nested_ref }}FromObject(ctx, data.{{ field.name }})
+		response.Diagnostics.Append(diags...)
+		createReq.{{ field.name }} = {% if not field.go_type.startswith('*') %}*{% endif %}{{ field.tf_name }}
+	}
+{% endfor %}
 
 	if response.Diagnostics.HasError() {
 		return
@@ -398,6 +405,19 @@ func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.U
 {% endif %}
 {% endfor %}
 		}
+		updateReq["{{ field.json_name }}"] = {{ field.tf_name }}
+	}
+{% endfor %}
+{% for field in object_fields %}
+{% if field.clear_when_unset %}
+	if data.{{ field.name }}.IsNull() {
+		updateReq["{{ field.json_name }}"] = nil
+	} else if !data.{{ field.name }}.IsUnknown() {
+{% else %}
+	if !data.{{ field.name }}.IsNull() && !data.{{ field.name }}.IsUnknown() {
+{% endif %}
+		{{ field.tf_name }}, diags := {{ field.nested_ref }}FromObject(ctx, data.{{ field.name }})
+		response.Diagnostics.Append(diags...)
 		updateReq["{{ field.json_name }}"] = {{ field.tf_name }}
 	}
 {% endfor %}
