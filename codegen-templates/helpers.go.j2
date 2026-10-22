@@ -8,8 +8,41 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
+
+// planUnchanged reports whether an update plan changes no configured attribute:
+// every attribute with a non-null config value is planned as its prior state value.
+// Terraform core proposes null for an unconfigured optional+computed nested attribute
+// whose prior value holds non-computed values (such as groups owned by
+// blastshield_group), so the framework sees a change and marks every unconfigured
+// computed attribute unknown, planning an update that would send nothing.
+func planUnchanged(req resource.ModifyPlanRequest) (bool, error) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return false, nil
+	}
+	var config, plan, state map[string]tftypes.Value
+	if err := req.Config.Raw.As(&config); err != nil {
+		return false, err
+	}
+	if err := req.Plan.Raw.As(&plan); err != nil {
+		return false, err
+	}
+	if err := req.State.Raw.As(&state); err != nil {
+		return false, err
+	}
+	for name, planned := range plan {
+		if config[name].IsNull() {
+			continue
+		}
+		if !planned.Equal(state[name]) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
 
 {% if has_groups %}
 // GroupMembershipValue is the Terraform model for group membership

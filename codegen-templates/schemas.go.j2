@@ -2,13 +2,34 @@
 
 package {{ package_name }}
 
+{% set ns = namespace(kinds=[]) %}
+{% for resource in resources %}
+{% for field in resource.fields if field.json_name == "id" and field.computed %}
+{% set ns.kinds = ns.kinds + [field.tf_type | lower] %}
+{% endfor %}
+{% if resource.store_post_response %}{% set ns.kinds = ns.kinds + ["string"] %}{% endif %}
+{% endfor %}
+{% set modifier_kinds = ns.kinds | unique | sort | list %}
 import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	resourceschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
+{% for kind in modifier_kinds %}
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/{{ kind }}planmodifier"
+{% endfor %}
+{% if modifier_kinds %}
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+{% endif %}
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+{#
+  id and invitation keep their prior state value during updates. Without this, any
+  in-place update marks them unknown, and an unknown id cascades "(known after
+  apply)" into every referencing resource. Other computed attributes are
+  server-managed and may change on update, so they stay unknown.
+#}
 
 {% for resource in resources %}
 // {{ resource.name }} model and schemas
@@ -88,12 +109,16 @@ func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schem
 {% if field.sensitive %}
 				Sensitive: true,
 {% endif %}
+{% if field.json_name == "id" and field.computed %}
+				PlanModifiers: []planmodifier.{{ field.tf_type }}{ {{ field.tf_type | lower }}planmodifier.UseStateForUnknown() },
+{% endif %}
 			},
 {% endif %}
 {% endfor %}
 {% if resource.store_post_response %}
 			"invitation": resourceschema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{ stringplanmodifier.UseStateForUnknown() },
 				Sensitive: true,
 				Description: "Base64-encoded JSON of the POST response (contains registration info).",
 			},
