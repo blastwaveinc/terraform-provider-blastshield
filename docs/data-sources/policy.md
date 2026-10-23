@@ -23,6 +23,7 @@ data "blastshield_policy" "example" {
 
 ### Read-Only
 
+- `device_security_postures` (Set of Number)
 - `enabled` (Boolean)
 - `from_groups` (Set of Number)
 - `id` (Number) The ID of this resource.

@@ -27,6 +27,7 @@ data "blastshield_policies" "web" {
 
 ### Optional
 
+- `device_security_postures` (List of Number) Filter by device_security_postures.
 - `enabled` (Boolean) Filter by enabled.
 - `from_groups` (List of Number) Filter by from_groups.
 - `id` (List of Number) Filter by id.
@@ -46,6 +47,7 @@ data "blastshield_policies" "web" {
 
 Read-Only:
 
+- `device_security_postures` (Set of Number)
 - `enabled` (Boolean)
 - `from_groups` (Set of Number)
 - `id` (Number)

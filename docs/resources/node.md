@@ -36,7 +36,6 @@ resource "blastshield_node" "gateway" {
 ### Optional
 
 - `address` (String)
-- `administrator` (String)
 - `api_access` (Boolean)
 - `dns_name` (Set of String)
 - `endpoint_mode` (String)
@@ -50,13 +49,13 @@ resource "blastshield_node" "gateway" {
 
 ### Read-Only
 
+- `device_attr` (Attributes) (see [below for nested schema](#nestedatt--device_attr))
 - `id` (String) The ID of this resource.
-- `idp_active` (Boolean)
-- `idp_auto_created` (Boolean)
-- `idp_username` (String)
 - `invitation` (String, Sensitive) Base64-encoded JSON of the POST response (contains registration info).
 - `system_tags` (Map of String)
 - `tags_all` (Map of String) All tags on the resource: the provider default_tags merged with tags, where tags take precedence.
+- `user_id` (String)
+- `users` (Attributes Set) (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--groups"></a>
 ### Nested Schema for `groups`
@@ -68,3 +67,35 @@ Required:
 Optional:
 
 - `expires` (Number) Expiry timestamp (0 = never).
+
+
+<a id="nestedatt--device_attr"></a>
+### Nested Schema for `device_attr`
+
+Read-Only:
+
+- `ad_domain` (String)
+- `antivirus_active` (Boolean)
+- `antivirus_up_to_date` (Boolean)
+- `device_name` (String)
+- `hardware_keystore` (Boolean)
+- `manufacturer` (String)
+- `model` (String)
+- `os_build` (String)
+- `os_family` (String)
+- `os_version` (String)
+- `rdp_enabled` (Boolean)
+- `secure_boot` (Boolean)
+- `server_os` (Boolean)
+- `sip_enabled` (Boolean)
+- `uac_enabled` (Boolean)
+- `wireless_debugging` (Boolean)
+
+
+<a id="nestedatt--users"></a>
+### Nested Schema for `users`
+
+Read-Only:
+
+- `id` (String)
+- `last_used` (Number)
