@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider"
+	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versions"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -22,9 +23,15 @@ const (
 	defaultTestToken = "dev"
 )
 
-// testAccProtoV6ProviderFactories instantiates the provider for this specific version
+// testAccProtoV6ProviderFactories instantiates the provider for this specific version.
+// It is pinned, so running the tests against a server that needs another version
+// gives a warning, not an error.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"blastshield": providerserver.NewProtocol6WithError(provider.New("test", &testVersionProvider{vp: &VersionProvider{}})()),
+	"blastshield": providerserver.NewProtocol6WithError(provider.New("test", versions.Selection{
+		Provider: &testVersionProvider{vp: &VersionProvider{}},
+		Version:  "{{ api_version }}",
+		Source:   versions.SourcePinned,
+	})()),
 }
 
 func testAccPreCheck(t *testing.T) {

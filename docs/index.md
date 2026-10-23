@@ -9,6 +9,16 @@ description: |-
 
 Terraform provider for managing Blastshield resources.
 
+## API Versions
+
+The provider supports several Blastshield API versions, and chooses the matching schema when it starts:
+
+- `BLASTSHIELD_API_VERSION` pins the API version, e.g. `1.13`. The provider uses the highest supported version that isn't above it.
+- Otherwise, if `BLASTSHIELD_HOST` and `BLASTSHIELD_TOKEN` are set, the version is detected from that server.
+- Otherwise, the latest supported API version is used.
+
+Terraform reads the resource schemas before it sends the provider configuration, so `host` and `token` in the provider block can't choose the version. When the provider is configured, it checks the API version of the configured server. If the server needs a different version, or runs a version the provider doesn't support, a pinned version gives a warning, and a detected or default version gives an error.
+
 ## Example Usage
 
 ```terraform
