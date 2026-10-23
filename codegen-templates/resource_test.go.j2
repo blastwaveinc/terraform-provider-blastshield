@@ -6,6 +6,7 @@ package {{ package_name }}
 {% set plan_stability_resources = ["Node", "Endpoint", "Group", "Service", "Policy"] %}
 {% set has_plan_stability = plan_stability_resources | reject("in", names) | list | length == 0 %}
 {% set tagged = resources | selectattr("has_tags") | map(attribute="name") | select("in", plan_stability_resources) | list %}
+{% set has_posture = "DeviceSecurityPosture" in names %}
 import (
 	"fmt"
 	"math/rand"
@@ -13,8 +14,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-{% if has_plan_stability %}
+{% if has_posture %}
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+{% endif %}
+{% if has_plan_stability or has_posture %}
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+{% endif %}
+{% if has_posture %}
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 {% endif %}
 )
 
@@ -488,5 +496,116 @@ resource "blastshield_service" "untagged" {
   ]
 }
 `, name, TestTag, defaultTags)
+}
+{% endfor -%}
+{% for resource in resources if resource.name == "DeviceSecurityPosture" %}
+// Device security posture attribute tests
+
+func TestAccDeviceSecurityPostureResource_attributes(t *testing.T) {
+	name := fmt.Sprintf("test-device_security_posture-attrs-%s", randomSuffix())
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Set platform attributes; unset platforms stay null
+			{
+				Config: testAccDeviceSecurityPostureConfig_attributes(name, `
+  windows_attr = {
+    secure_boot  = true
+    min_os_build = "26100"
+    model        = ["model-a"]
+  }
+`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "windows_attr.secure_boot", "true"),
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "windows_attr.min_os_build", "26100"),
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "windows_attr.model.#", "1"),
+					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "windows_attr.rdp_enabled"),
+					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "linux_attr.hardware_keystore"),
+				),
+			},
+			// Change and remove attributes, and add another platform
+			{
+				Config: testAccDeviceSecurityPostureConfig_attributes(name, `
+  windows_attr = {
+    secure_boot = false
+    model       = ["model-a", "model-b"]
+  }
+  linux_attr = {
+    hardware_keystore = true
+  }
+`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "windows_attr.secure_boot", "false"),
+					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "windows_attr.min_os_build"),
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "windows_attr.model.#", "2"),
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "linux_attr.hardware_keystore", "true"),
+				),
+			},
+			// Removing a platform block clears it on the server (the post-apply plan
+			// would not be empty if the server kept it)
+			{
+				Config: testAccDeviceSecurityPostureConfig_attributes(name, `
+  windows_attr = {
+    secure_boot = false
+    model       = ["model-a", "model-b"]
+  }
+`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("blastshield_device_security_posture.test", plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("blastshield_device_security_posture.test", "windows_attr.secure_boot", "false"),
+					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "linux_attr.hardware_keystore"),
+				),
+			},
+			// Removing the last platform block leaves a posture without requirements
+			{
+				Config: testAccDeviceSecurityPostureConfig_attributes(name, ""),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("blastshield_device_security_posture.test", plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "windows_attr.secure_boot"),
+					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "windows_attr.model.#"),
+				),
+			},
+			// Empty platform blocks select platforms without any requirements (as in
+			// the resource example)
+			{
+				Config: testAccDeviceSecurityPostureConfig_attributes(name, `
+  windows_attr = {}
+  macos_attr   = {}
+`),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("blastshield_device_security_posture.test", tfjsonpath.New("windows_attr"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue("blastshield_device_security_posture.test", tfjsonpath.New("macos_attr"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue("blastshield_device_security_posture.test", tfjsonpath.New("linux_attr"), knownvalue.Null()),
+				},
+			},
+			{
+				ResourceName:      "blastshield_device_security_posture.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccDeviceSecurityPostureConfig_attributes(name, attributes string) string {
+	return testAccProviderConfig() + fmt.Sprintf(`
+resource "blastshield_device_security_posture" "test" {
+  name = %[1]q
+%[2]s
+{% if resource.has_tags %}  tags = {
+    test = %[3]q
+  }
+{% endif -%}
+}
+`, name, attributes{% if resource.has_tags %}, TestTag{% endif %})
 }
 {% endfor -%}

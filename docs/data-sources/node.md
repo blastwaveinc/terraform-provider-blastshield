@@ -24,8 +24,8 @@ data "blastshield_node" "example" {
 ### Read-Only
 
 - `address` (String)
-- `administrator` (String)
 - `api_access` (Boolean)
+- `device_attr` (Attributes) (see [below for nested schema](#nestedatt--device_attr))
 - `dns_name` (Set of String)
 - `endpoint_mode` (String)
 - `endpoint_subnet` (String)
@@ -33,9 +33,6 @@ data "blastshield_node" "example" {
 - `groups` (Attributes List) Group memberships with optional expiry. (see [below for nested schema](#nestedatt--groups))
 - `ha_active` (String)
 - `id` (String) The ID of this resource.
-- `idp_active` (Boolean)
-- `idp_auto_created` (Boolean)
-- `idp_username` (String)
 - `invitation` (String, Sensitive) Not available from data source (only returned on resource creation).
 - `master` (String)
 - `name` (String)
@@ -43,6 +40,31 @@ data "blastshield_node" "example" {
 - `public_key` (String)
 - `system_tags` (Map of String)
 - `tags` (Map of String)
+- `user_id` (String)
+- `users` (Attributes Set) (see [below for nested schema](#nestedatt--users))
+
+<a id="nestedatt--device_attr"></a>
+### Nested Schema for `device_attr`
+
+Read-Only:
+
+- `ad_domain` (String)
+- `antivirus_active` (Boolean)
+- `antivirus_up_to_date` (Boolean)
+- `device_name` (String)
+- `hardware_keystore` (Boolean)
+- `manufacturer` (String)
+- `model` (String)
+- `os_build` (String)
+- `os_family` (String)
+- `os_version` (String)
+- `rdp_enabled` (Boolean)
+- `secure_boot` (Boolean)
+- `server_os` (Boolean)
+- `sip_enabled` (Boolean)
+- `uac_enabled` (Boolean)
+- `wireless_debugging` (Boolean)
+
 
 <a id="nestedatt--groups"></a>
 ### Nested Schema for `groups`
@@ -51,3 +73,12 @@ Read-Only:
 
 - `expires` (Number) Expiry timestamp (0 = never).
 - `id` (Number) Group ID.
+
+
+<a id="nestedatt--users"></a>
+### Nested Schema for `users`
+
+Read-Only:
+
+- `id` (String)
+- `last_used` (Number)

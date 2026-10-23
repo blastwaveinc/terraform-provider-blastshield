@@ -41,6 +41,7 @@ resource "blastshield_policy" "allow_web" {
 
 ### Optional
 
+- `device_security_postures` (Set of Number)
 - `tags` (Map of String) Tags for the resource. Merged over the provider default_tags; on key conflicts these take precedence.
 
 ### Read-Only

@@ -17,7 +17,9 @@ import (
 )
 
 // planUnchanged reports whether an update plan changes no configured attribute:
-// every attribute with a non-null config value is planned as its prior state value.
+// every attribute is planned as its prior state value, except computed attributes
+// left unset in the config. An unset attribute that isn't computed (an optional
+// nullable object) still counts, as removing it from the config clears it.
 // Terraform core proposes null for an unconfigured optional+computed nested attribute
 // whose prior value holds non-computed values (such as groups owned by
 // blastshield_group), so the framework sees a change and marks every unconfigured
@@ -36,8 +38,9 @@ func planUnchanged(req resource.ModifyPlanRequest) (bool, error) {
 	if err := req.State.Raw.As(&state); err != nil {
 		return false, err
 	}
+	attrs := req.Plan.Schema.GetAttributes()
 	for name, planned := range plan {
-		if config[name].IsNull() {
+		if attr, ok := attrs[name]; ok && attr.IsComputed() && config[name].IsNull() {
 			continue
 		}
 		if !planned.Equal(state[name]) {
@@ -239,3 +242,72 @@ func planTagsAll(ctx context.Context, client Client, req resource.ModifyPlanRequ
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("tags_all"), tagsAll)...)
 }
 {% endif %}
+{% for type_name, nested_fields in object_types.items() %}
+
+// {{ type_name }}AttrTypes returns the attribute types of a {{ type_name }} object
+func {{ type_name }}AttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+{% for nf in nested_fields %}
+{% if nf.is_list %}
+		"{{ nf.tf_name }}": types.SetType{ElemType: {{ nf.tf_element_type }}},
+{% else %}
+		"{{ nf.tf_name }}": types.{{ nf.tf_type }}Type,
+{% endif %}
+{% endfor %}
+	}
+}
+
+// {{ type_name }}ToObject converts an API {{ type_name }} to a Terraform object (null when absent)
+func {{ type_name }}ToObject(ctx context.Context, v *{{ type_name }}) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull({{ type_name }}AttrTypes()), nil
+	}
+	var diags diag.Diagnostics
+	attrs := make(map[string]attr.Value)
+{% for nf in nested_fields %}
+{% if nf.is_list %}
+	if v.{{ nf.name }} == nil {
+		attrs["{{ nf.tf_name }}"] = types.SetNull({{ nf.tf_element_type }})
+	} else {
+		s, d := types.SetValueFrom(ctx, {{ nf.tf_element_type }}, v.{{ nf.name }})
+		diags.Append(d...)
+		attrs["{{ nf.tf_name }}"] = s
+	}
+{% elif nf.go_type.startswith('*') %}
+	attrs["{{ nf.tf_name }}"] = types.{{ nf.tf_type }}PointerValue(v.{{ nf.name }})
+{% else %}
+	attrs["{{ nf.tf_name }}"] = types.{{ nf.tf_type }}Value(v.{{ nf.name }})
+{% endif %}
+{% endfor %}
+	obj, d := types.ObjectValue({{ type_name }}AttrTypes(), attrs)
+	diags.Append(d...)
+	return obj, diags
+}
+
+// {{ type_name }}FromObject converts a Terraform object to an API {{ type_name }}.
+// Unset attributes are sent as null.
+func {{ type_name }}FromObject(ctx context.Context, obj types.Object) (*{{ type_name }}, diag.Diagnostics) {
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, nil
+	}
+	var diags diag.Diagnostics
+	attrs := obj.Attributes()
+	v := &{{ type_name }}{}
+{% for nf in nested_fields %}
+{% if nf.is_list %}
+	if s, ok := attrs["{{ nf.tf_name }}"].(types.Set); ok && !s.IsNull() && !s.IsUnknown() {
+		diags.Append(s.ElementsAs(ctx, &v.{{ nf.name }}, false)...)
+	}
+{% elif nf.go_type.startswith('*') %}
+	if a, ok := attrs["{{ nf.tf_name }}"].(types.{{ nf.tf_type }}); ok {
+		v.{{ nf.name }} = a.Value{{ nf.tf_type }}Pointer()
+	}
+{% else %}
+	if a, ok := attrs["{{ nf.tf_name }}"].(types.{{ nf.tf_type }}); ok {
+		v.{{ nf.name }} = a.Value{{ nf.tf_type }}()
+	}
+{% endif %}
+{% endfor %}
+	return v, diags
+}
+{% endfor %}

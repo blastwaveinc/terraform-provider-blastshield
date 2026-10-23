@@ -28,7 +28,6 @@ data "blastshield_nodes" "gateways" {
 ### Optional
 
 - `address` (List of String) Filter by address.
-- `administrator` (List of String) Filter by administrator.
 - `api_access` (Boolean) Filter by api_access.
 - `dns_name` (List of String) Filter by dns_name.
 - `endpoint_mode` (List of String) Filter by endpoint_mode.
@@ -37,15 +36,13 @@ data "blastshield_nodes" "gateways" {
 - `group` (List of Number) Filter by group.
 - `ha_active` (List of String) Filter by ha_active.
 - `id` (List of String) Filter by id.
-- `idp_active` (Boolean) Filter by idp_active.
-- `idp_auto_created` (Boolean) Filter by idp_auto_created.
-- `idp_username` (List of String) Filter by idp_username.
 - `master` (List of String) Filter by master.
 - `name` (List of String) Filter by name.
 - `node_type` (List of String) Filter by node_type.
 - `public_key` (List of String) Filter by public_key.
 - `system_tags` (List of String) Filter by system_tags.
 - `tags` (List of String) Filter by tags.
+- `user_id` (List of String) Filter by user_id.
 
 ### Read-Only
 
@@ -57,8 +54,8 @@ data "blastshield_nodes" "gateways" {
 Read-Only:
 
 - `address` (String)
-- `administrator` (String)
 - `api_access` (Boolean)
+- `device_attr` (Attributes) (see [below for nested schema](#nestedatt--nodes--device_attr))
 - `dns_name` (Set of String)
 - `endpoint_mode` (String)
 - `endpoint_subnet` (String)
@@ -66,9 +63,6 @@ Read-Only:
 - `groups` (Attributes List) Groups this resource belongs to. (see [below for nested schema](#nestedatt--nodes--groups))
 - `ha_active` (String)
 - `id` (String)
-- `idp_active` (Boolean)
-- `idp_auto_created` (Boolean)
-- `idp_username` (String)
 - `invitation` (String) The invitation code (only available on resource creation).
 - `master` (String)
 - `name` (String)
@@ -76,6 +70,31 @@ Read-Only:
 - `public_key` (String)
 - `system_tags` (Map of String)
 - `tags` (Map of String)
+- `user_id` (String)
+- `users` (Attributes Set) (see [below for nested schema](#nestedatt--nodes--users))
+
+<a id="nestedatt--nodes--device_attr"></a>
+### Nested Schema for `nodes.device_attr`
+
+Read-Only:
+
+- `ad_domain` (String)
+- `antivirus_active` (Boolean)
+- `antivirus_up_to_date` (Boolean)
+- `device_name` (String)
+- `hardware_keystore` (Boolean)
+- `manufacturer` (String)
+- `model` (String)
+- `os_build` (String)
+- `os_family` (String)
+- `os_version` (String)
+- `rdp_enabled` (Boolean)
+- `secure_boot` (Boolean)
+- `server_os` (Boolean)
+- `sip_enabled` (Boolean)
+- `uac_enabled` (Boolean)
+- `wireless_debugging` (Boolean)
+
 
 <a id="nestedatt--nodes--groups"></a>
 ### Nested Schema for `nodes.groups`
@@ -84,3 +103,12 @@ Read-Only:
 
 - `expires` (Number) Unix timestamp when group membership expires.
 - `id` (Number) The group ID.
+
+
+<a id="nestedatt--nodes--users"></a>
+### Nested Schema for `nodes.users`
+
+Read-Only:
+
+- `id` (String)
+- `last_used` (Number)

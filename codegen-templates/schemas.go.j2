@@ -38,6 +38,8 @@ type {{ resource.name }}Model struct {
 {% for field in resource.fields %}
 {% if field.is_nested and field.is_list and field.nested_fields %}
 	{{ field.name }} types.Set `tfsdk:"{{ field.tf_name }}"`
+{% elif field.is_object %}
+	{{ field.name }} types.Object `tfsdk:"{{ field.tf_name }}"`
 {% elif not field.is_nested %}
 {% if field.is_list %}
 	{{ field.name }} types.Set `tfsdk:"{{ field.tf_name }}"`
@@ -86,7 +88,9 @@ func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schem
 {% else %}
 						"{{ nf.tf_name }}": resourceschema.{{ nf.tf_type }}Attribute{
 {% endif %}
-{% if nf.required %}
+{% if not (field.required or field.optional) %}
+							Computed: true,
+{% elif nf.required %}
 							Required: true,
 {% else %}
 							Optional: true,
@@ -94,6 +98,38 @@ func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schem
 						},
 {% endfor %}
 					},
+				},
+			},
+{% elif field.is_object %}
+			"{{ field.tf_name }}": resourceschema.SingleNestedAttribute{
+{% if field.required %}
+				Required: true,
+{% elif field.computed and field.optional %}
+				Optional: true,
+				Computed: true,
+{% elif field.optional %}
+				Optional: true,
+{% elif field.computed %}
+				Computed: true,
+{% endif %}
+				Attributes: map[string]resourceschema.Attribute{
+{% for nf in field.nested_fields %}
+{% if nf.is_list %}
+					"{{ nf.tf_name }}": resourceschema.SetAttribute{
+						ElementType: {{ nf.tf_element_type }},
+{% else %}
+					"{{ nf.tf_name }}": resourceschema.{{ nf.tf_type }}Attribute{
+{% endif %}
+{% if field.required or field.optional %}
+						Optional: true,
+{% else %}
+						Computed: true,
+{% endif %}
+{% if nf.sensitive %}
+						Sensitive: true,
+{% endif %}
+					},
+{% endfor %}
 				},
 			},
 {% elif not field.is_nested %}
@@ -188,6 +224,30 @@ func {{ resource.name }}DataSourceSchema(ctx context.Context) schema.Schema {
 {% endif %}
 {% endfor %}
 					},
+				},
+			},
+{% elif field.is_object %}
+			"{{ field.tf_name }}": schema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+{% for nf in field.nested_fields %}
+{% if nf.is_list %}
+					"{{ nf.tf_name }}": schema.SetAttribute{
+						ElementType: {{ nf.tf_element_type }},
+						Computed: true,
+{% if nf.sensitive %}
+						Sensitive: true,
+{% endif %}
+					},
+{% else %}
+					"{{ nf.tf_name }}": schema.{{ nf.tf_type }}Attribute{
+						Computed: true,
+{% if nf.sensitive %}
+						Sensitive: true,
+{% endif %}
+					},
+{% endif %}
+{% endfor %}
 				},
 			},
 {% elif not field.is_nested %}
@@ -286,6 +346,30 @@ func {{ resource.plural }}DataSourceSchema(ctx context.Context) schema.Schema {
 {% endif %}
 {% endfor %}
 								},
+							},
+						},
+{% elif field.is_object %}
+						"{{ field.tf_name }}": schema.SingleNestedAttribute{
+							Computed: true,
+							Attributes: map[string]schema.Attribute{
+{% for nf in field.nested_fields %}
+{% if nf.is_list %}
+								"{{ nf.tf_name }}": schema.SetAttribute{
+									ElementType: {{ nf.tf_element_type }},
+									Computed: true,
+{% if nf.sensitive %}
+									Sensitive: true,
+{% endif %}
+								},
+{% else %}
+								"{{ nf.tf_name }}": schema.{{ nf.tf_type }}Attribute{
+									Computed: true,
+{% if nf.sensitive %}
+									Sensitive: true,
+{% endif %}
+								},
+{% endif %}
+{% endfor %}
 							},
 						},
 {% elif not field.is_nested %}

@@ -43,6 +43,7 @@ data "blastshield_groups" "web" {
 
 Read-Only:
 
+- `agents` (Attributes Set) (see [below for nested schema](#nestedatt--groups--agents))
 - `endpoints` (Attributes Set) (see [below for nested schema](#nestedatt--groups--endpoints))
 - `id` (Number)
 - `idp_externalid` (String)
@@ -51,6 +52,15 @@ Read-Only:
 - `system_tags` (Map of String)
 - `tags` (Map of String)
 - `users` (Attributes Set) (see [below for nested schema](#nestedatt--groups--users))
+
+<a id="nestedatt--groups--agents"></a>
+### Nested Schema for `groups.agents`
+
+Read-Only:
+
+- `expires` (Number)
+- `id` (String)
+
 
 <a id="nestedatt--groups--endpoints"></a>
 ### Nested Schema for `groups.endpoints`

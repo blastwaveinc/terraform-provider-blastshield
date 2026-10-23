@@ -42,6 +42,7 @@ resource "blastshield_group" "web_servers" {
 
 ### Optional
 
+- `agents` (Attributes Set) (see [below for nested schema](#nestedatt--agents))
 - `tags` (Map of String) Tags for the resource. Merged over the provider default_tags; on key conflicts these take precedence.
 
 ### Read-Only
@@ -63,6 +64,15 @@ Required:
 
 <a id="nestedatt--users"></a>
 ### Nested Schema for `users`
+
+Required:
+
+- `expires` (Number)
+- `id` (String)
+
+
+<a id="nestedatt--agents"></a>
+### Nested Schema for `agents`
 
 Required:
 

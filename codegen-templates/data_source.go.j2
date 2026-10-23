@@ -217,6 +217,8 @@ func {{ resource.tf_name }}AttrTypes() map[string]attr.Type {
 {% endif %}
 {% endfor %}
 		}}},
+{% elif field.is_object %}
+		"{{ field.tf_name }}": types.ObjectType{AttrTypes: {{ field.nested_ref }}AttrTypes()},
 {% elif not field.is_nested %}
 {% if field.is_list %}
 		"{{ field.tf_name }}": types.SetType{ElemType: {{ field.tf_element_type }}},

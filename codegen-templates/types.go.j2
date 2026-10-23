@@ -5,7 +5,7 @@ package {{ package_name }}
 {% for resource in resources %}
 type {{ resource.name }}Response struct {
 {% for field in resource.fields %}
-{% if field.is_nested and field.is_list and field.nested_fields %}
+{% if (field.is_nested and field.is_list and field.nested_fields) or field.is_object %}
 	{{ field.name }} {{ field.go_type }} `json:"{{ field.json_name }}"`
 {% elif not field.is_nested %}
 {% if field.is_pointer %}
@@ -20,7 +20,7 @@ type {{ resource.name }}Response struct {
 {% if resource.create_fields %}
 type {{ resource.name }}CreateRequest struct {
 {% for field in resource.create_fields %}
-{% if field.is_nested and field.is_list and field.nested_fields %}
+{% if (field.is_nested and field.is_list and field.nested_fields) or field.is_object %}
 {% if field.required %}
 	{{ field.name }} {{ field.go_type }} `json:"{{ field.json_name }}"`
 {% else %}

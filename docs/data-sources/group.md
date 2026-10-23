@@ -23,6 +23,7 @@ data "blastshield_group" "example" {
 
 ### Read-Only
 
+- `agents` (Attributes Set) (see [below for nested schema](#nestedatt--agents))
 - `endpoints` (Attributes Set) (see [below for nested schema](#nestedatt--endpoints))
 - `id` (Number) The ID of this resource.
 - `idp_externalid` (String)
@@ -31,6 +32,15 @@ data "blastshield_group" "example" {
 - `system_tags` (Map of String)
 - `tags` (Map of String)
 - `users` (Attributes Set) (see [below for nested schema](#nestedatt--users))
+
+<a id="nestedatt--agents"></a>
+### Nested Schema for `agents`
+
+Read-Only:
+
+- `expires` (Number)
+- `id` (String)
+
 
 <a id="nestedatt--endpoints"></a>
 ### Nested Schema for `endpoints`
