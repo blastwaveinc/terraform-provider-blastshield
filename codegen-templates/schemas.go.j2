@@ -88,7 +88,9 @@ func {{ resource.name }}ResourceSchema(ctx context.Context) resourceschema.Schem
 {% else %}
 						"{{ nf.tf_name }}": resourceschema.{{ nf.tf_type }}Attribute{
 {% endif %}
-{% if nf.required %}
+{% if not (field.required or field.optional) %}
+							Computed: true,
+{% elif nf.required %}
 							Required: true,
 {% else %}
 							Optional: true,
