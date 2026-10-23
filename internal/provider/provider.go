@@ -2,10 +2,12 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/blastwaveinc/terraform-provider-blastshield/internal/provider/versions"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -17,7 +19,7 @@ var _ provider.Provider = &BlastshieldProvider{}
 
 type BlastshieldProvider struct {
 	version string
-	vp      versions.VersionedProvider
+	sel     versions.Selection
 }
 
 type BlastshieldProviderModel struct {
@@ -110,6 +112,11 @@ func (p *BlastshieldProvider) Configure(ctx context.Context, req provider.Config
 		return
 	}
 
+	resp.Diagnostics.Append(p.checkAPIVersion(host, token)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	data := &ProviderData{
 		Client:           NewClient(host, token),
 		defaultTagsKnown: true,
@@ -138,25 +145,91 @@ func (p *BlastshieldProvider) Configure(ctx context.Context, req provider.Config
 	resp.ResourceData = data
 }
 
+// checkAPIVersion checks that the API version the provider was started with is the
+// one the configured server needs. The version is chosen at startup, before
+// Terraform sends the provider configuration, so it can't be switched here.
+func (p *BlastshieldProvider) checkAPIVersion(host, token string) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if p.sel.Err != nil {
+		diags.AddError("Unsupported BLASTSHIELD_API_VERSION",
+			fmt.Sprintf("%s. Set BLASTSHIELD_API_VERSION to a supported API version, or unset it.", p.sel.Err))
+		return diags
+	}
+	if p.sel.Source == versions.SourceDetected && p.sel.Host == host {
+		// Detected from this server at startup
+		return diags
+	}
+	serverVersion, err := versions.FetchAPIVersion(host, token)
+	if err != nil {
+		diags.AddWarning("Unable to Verify the Blastshield API Version",
+			fmt.Sprintf("Could not fetch the API version from %s: %s. The provider uses API version %s.", host, err, p.sel.Version))
+		return diags
+	}
+	return apiVersionMismatch(p.sel, host, serverVersion)
+}
+
+// apiVersionMismatch reports when the server needs a different API version than
+// the one in use, or runs a version that isn't supported: a warning when it was
+// pinned with BLASTSHIELD_API_VERSION, an error otherwise.
+func apiVersionMismatch(sel versions.Selection, host, serverVersion string) diag.Diagnostics {
+	var diags diag.Diagnostics
+	_, want, err := versions.SelectVersion(serverVersion)
+	if err != nil {
+		if sel.Source == versions.SourcePinned {
+			diags.AddWarning("Unsupported Blastshield API Version",
+				fmt.Sprintf("The server at %s runs API version %s: %s. BLASTSHIELD_API_VERSION selects API version %s.",
+					host, serverVersion, err, sel.Version))
+			return diags
+		}
+		diags.AddError("Unsupported Blastshield API Version",
+			fmt.Sprintf("The server at %s runs API version %s: %s. To use it anyway, set BLASTSHIELD_API_VERSION to the API version to use.",
+				host, serverVersion, err))
+		return diags
+	}
+	if want == sel.Version {
+		return diags
+	}
+
+	if sel.Source == versions.SourcePinned {
+		diags.AddWarning("Pinned Blastshield API Version Differs From the Server",
+			fmt.Sprintf("BLASTSHIELD_API_VERSION selects API version %s, but the server at %s runs API version %s, which needs API version %s. "+
+				"Resources and attributes that the server doesn't support will fail.",
+				sel.Version, host, serverVersion, want))
+		return diags
+	}
+
+	reason := "No API version was detected when the provider started"
+	if sel.Source == versions.SourceDetected {
+		reason = fmt.Sprintf("The API version was detected from BLASTSHIELD_HOST (%s)", sel.Host)
+	}
+	diags.AddError("Blastshield API Version Mismatch",
+		fmt.Sprintf("The provider uses API version %s, but the server at %s runs API version %s, which needs API version %s. "+
+			"%s. The API version is chosen when the provider starts, before Terraform sends the provider configuration, "+
+			"so host and token in the provider block can't choose it. Set BLASTSHIELD_HOST and BLASTSHIELD_TOKEN to this "+
+			"server, or set BLASTSHIELD_API_VERSION=%s.",
+			sel.Version, host, serverVersion, want, reason, want))
+	return diags
+}
+
 func (p *BlastshieldProvider) Resources(ctx context.Context) []func() resource.Resource {
-	if p.vp != nil {
-		return p.vp.Resources()
+	if p.sel.Provider != nil {
+		return p.sel.Provider.Resources()
 	}
 	return nil
 }
 
 func (p *BlastshieldProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	if p.vp != nil {
-		return p.vp.DataSources()
+	if p.sel.Provider != nil {
+		return p.sel.Provider.DataSources()
 	}
 	return nil
 }
 
-func New(version string, vp versions.VersionedProvider) func() provider.Provider {
+func New(version string, sel versions.Selection) func() provider.Provider {
 	return func() provider.Provider {
 		return &BlastshieldProvider{
 			version: version,
-			vp:      vp,
+			sel:     sel,
 		}
 	}
 }

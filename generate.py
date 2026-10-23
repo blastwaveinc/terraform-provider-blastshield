@@ -510,7 +510,7 @@ def main():
         ("client.go.j2", os.path.join(output_dir, "client.go"), {"package_name": package_name}),
         ("helpers.go.j2", os.path.join(output_dir, "helpers.go"), {"has_groups": has_groups, "has_tags": has_tags, "object_types": object_types, "package_name": package_name}),
         ("register.go.j2", os.path.join(output_dir, "register.go"), {"resources": resources, "api_version": api_version, "package_name": package_name}),
-        ("test_helpers.go.j2", os.path.join(output_dir, "test_helpers_test.go"), {"package_name": package_name}),
+        ("test_helpers.go.j2", os.path.join(output_dir, "test_helpers_test.go"), {"api_version": api_version, "package_name": package_name}),
         ("helpers_test.go.j2", os.path.join(output_dir, "helpers_test.go"), {"has_tags": has_tags, "package_name": package_name}),
         ("resource_test.go.j2", os.path.join(output_dir, "resources_test.go"), {"resources": resources, "package_name": package_name}),
     ]

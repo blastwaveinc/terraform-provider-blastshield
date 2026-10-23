@@ -10,12 +10,14 @@ This is a Terraform provider for managing Blastshield resources, generated from 
 
 The provider compiles code for every API version in `openapi-specs/` into a single binary. At startup, it detects the remote server's API version and selects the best matching compiled-in version.
 
-**Version selection logic:**
-- Fetches `GET {host}/openapi.json` to get the server's API version
-- Selects the highest compiled-in version <= server version
-- Falls back to the latest compiled-in version if the server is unreachable (e.g., `terraform validate`)
+**Version selection logic** (`versions.Detect()`, first match wins):
+- `BLASTSHIELD_API_VERSION` pins the version: the highest compiled-in version <= the pin
+- If `BLASTSHIELD_HOST` and `BLASTSHIELD_TOKEN` are set, fetches `GET {host}/openapi.json` and selects the highest compiled-in version <= server version
+- Otherwise (or if the server is unreachable, e.g. `terraform validate`), the latest compiled-in version
 
-**Version detection happens in `main.go`** before `providerserver.Serve()`, because the Terraform framework calls `Resources()`/`DataSources()` before `Configure()`.
+**Version detection happens in `main.go`** before `providerserver.Serve()`, because the Terraform framework calls `Resources()`/`DataSources()` before `Configure()`. So `host`/`token` in the provider block can't select the version; only the environment variables can.
+
+**Mismatch check in `Configure()`**: the provider fetches the configured server's API version and compares the version it would select with the one in use. A mismatch is a warning when pinned and an error otherwise (no detection, or detected from another host). The generated acceptance tests pin their package's version, so running them against a server of another version only warns.
 
 ### Code Generation
 
@@ -232,7 +234,7 @@ The generated tests provide basic coverage. For version-specific features:
 
 4. **CreateRaw for POST responses**: Returns raw `[]byte` so resources can parse and store the full response (needed for Node's invitation data).
 
-5. **Version detection in main.go**: Performed before `providerserver.Serve()` because the framework calls `Resources()`/`DataSources()` before `Configure()`. Different API versions may have different resources/schemas.
+5. **Version detection in main.go**: Performed before `providerserver.Serve()` because the framework calls `Resources()`/`DataSources()` before `Configure()`. Different API versions may have different resources/schemas. `Configure()` then checks the selection against the configured server, since the provider block may point elsewhere.
 
 6. **Highest version <= server**: The provider selects the highest compiled-in version that doesn't exceed the server's version, ensuring forward compatibility within a minor version.
 

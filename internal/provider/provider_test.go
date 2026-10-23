@@ -38,13 +38,13 @@ const (
 // acceptance testing. The factory function will be invoked for every Terraform
 // CLI command executed to create a provider server to which the CLI can
 // reattach.
-func testVersionedProvider() versions.VersionedProvider {
-	vp, _ := versions.LatestVersion()
-	return vp
+func testVersionSelection() versions.Selection {
+	vp, ver := versions.LatestVersion()
+	return versions.Selection{Provider: vp, Version: ver, Source: versions.SourcePinned}
 }
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"blastshield": providerserver.NewProtocol6WithError(New("test", testVersionedProvider())()),
+	"blastshield": providerserver.NewProtocol6WithError(New("test", testVersionSelection())()),
 }
 
 func testAccPreCheck(t *testing.T) {
