@@ -14,8 +14,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+{% if has_posture %}
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+{% endif %}
 {% if has_plan_stability or has_posture %}
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+{% endif %}
+{% if has_posture %}
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 {% endif %}
 )
 
@@ -566,6 +573,19 @@ func TestAccDeviceSecurityPostureResource_attributes(t *testing.T) {
 					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "windows_attr.secure_boot"),
 					resource.TestCheckNoResourceAttr("blastshield_device_security_posture.test", "windows_attr.model.#"),
 				),
+			},
+			// Empty platform blocks select platforms without any requirements (as in
+			// the resource example)
+			{
+				Config: testAccDeviceSecurityPostureConfig_attributes(name, `
+  windows_attr = {}
+  macos_attr   = {}
+`),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("blastshield_device_security_posture.test", tfjsonpath.New("windows_attr"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue("blastshield_device_security_posture.test", tfjsonpath.New("macos_attr"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue("blastshield_device_security_posture.test", tfjsonpath.New("linux_attr"), knownvalue.Null()),
+				},
 			},
 			{
 				ResourceName:      "blastshield_device_security_posture.test",
