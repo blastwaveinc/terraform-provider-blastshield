@@ -83,6 +83,14 @@ The POST response is stored as base64-encoded JSON in an `invitation` field.
 Custom field name in POST response that contains the entity ID:
 - Node uses `node_id` (from InvitationResponse)
 
+## Provider default_tags
+
+The provider's `default_tags` map is merged into every resource with a `tags` attribute (resource tags win on conflicts):
+- `tags` holds only the resource-level tags; the computed `tags_all` holds the merged map that is sent to and stored by the API.
+- A generated `ModifyPlan` (`planTagsAll` in `helpers.go`) computes `tags_all` at plan time, so changing `default_tags` plans an update. If `tags` is omitted from the config, its last known value is kept (omitted tags are not managed).
+- On read, `tags` is derived from the API tags by dropping keys that match a default tag and were not previously tracked in `tags` (`resourceTagsFromAPI`).
+- Resources get the defaults via `Client.DefaultTags()`; `provider.ProviderData` wraps the API client and implements it.
+
 ## Automatic Nested Field Handling
 
 The generator automatically handles nested object arrays from the OpenAPI spec:

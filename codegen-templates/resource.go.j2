@@ -60,7 +60,7 @@ func (r *{{ resource.name }}Resource) Configure(ctx context.Context, req resourc
 }
 
 func (r *{{ resource.name }}Resource) Create(ctx context.Context, req resource.CreateRequest, response *resource.CreateResponse) {
-	var data {{ resource.name }}Model
+	var data {{ resource.name }}ResourceModel
 	response.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if response.Diagnostics.HasError() {
 		return
@@ -180,6 +180,9 @@ func (r *{{ resource.name }}Resource) Create(ctx context.Context, req resource.C
 		createReq.{{ field.name }} = {{ field.tf_name }}
 	}
 {% endfor %}
+{% if resource.has_tags %}
+	createReq.Tags = effectiveTags(ctx, r.client, data.Tags, &response.Diagnostics)
+{% endif %}
 
 	if response.Diagnostics.HasError() {
 		return
@@ -228,7 +231,14 @@ func (r *{{ resource.name }}Resource) Create(ctx context.Context, req resource.C
 	}
 
 	data.ID = {{ id_set }}(resp.ID)
+{% if resource.has_tags %}
+	priorTags, priorTagsAll := data.Tags, data.TagsAll
+{% endif %}
 {{ response_mapping(resource.fields, "resp", "data", "\t") }}
+{% if resource.has_tags %}
+	data.TagsAll = data.Tags
+	data.Tags = resourceTagsValue(ctx, r.client, data.TagsAll, priorTags, priorTagsAll, &response.Diagnostics)
+{% endif %}
 {% if resource.has_groups %}
 
 	// Handle groups
@@ -264,7 +274,7 @@ func (r *{{ resource.name }}Resource) Create(ctx context.Context, req resource.C
 }
 
 func (r *{{ resource.name }}Resource) Read(ctx context.Context, req resource.ReadRequest, response *resource.ReadResponse) {
-	var data {{ resource.name }}Model
+	var data {{ resource.name }}ResourceModel
 	response.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if response.Diagnostics.HasError() {
 		return
@@ -272,7 +282,7 @@ func (r *{{ resource.name }}Resource) Read(ctx context.Context, req resource.Rea
 
 {% if resource.store_post_response %}
 	// Preserve invitation from state (not returned by GET)
-	var stateData {{ resource.name }}Model
+	var stateData {{ resource.name }}ResourceModel
 	response.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 {% endif %}
@@ -284,7 +294,14 @@ func (r *{{ resource.name }}Resource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
+{% if resource.has_tags %}
+	priorTags, priorTagsAll := data.Tags, data.TagsAll
+{% endif %}
 {{ response_mapping(resource.fields, "resp", "data", "\t") }}
+{% if resource.has_tags %}
+	data.TagsAll = data.Tags
+	data.Tags = resourceTagsValue(ctx, r.client, data.TagsAll, priorTags, priorTagsAll, &response.Diagnostics)
+{% endif %}
 {% if resource.store_post_response %}
 
 	// Restore invitation from state
@@ -309,15 +326,18 @@ func (r *{{ resource.name }}Resource) Read(ctx context.Context, req resource.Rea
 }
 
 func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.UpdateRequest, response *resource.UpdateResponse) {
-	var data {{ resource.name }}Model
+	var data {{ resource.name }}ResourceModel
 	response.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
 
 	updateReq := make(map[string]interface{})
+{% if resource.has_tags %}
+	updateReq["tags"] = effectiveTags(ctx, r.client, data.Tags, &response.Diagnostics)
+{% endif %}
 {% for field in resource.create_fields %}
-{% if not field.is_nested %}
+{% if not field.is_nested and not (resource.has_tags and field.json_name == "tags") %}
 {% if field.is_list %}
 	if !data.{{ field.name }}.IsNull() && !data.{{ field.name }}.IsUnknown() {
 {% if field.tf_element_type == "types.StringType" %}
@@ -387,7 +407,7 @@ func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.U
 	}
 
 	// Get prior state for ID and invitation
-	var stateData {{ resource.name }}Model
+	var stateData {{ resource.name }}ResourceModel
 	response.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	path := fmt.Sprintf("{{ resource.path }}{{ id_format }}", stateData.ID.{{ id_value_method }})
@@ -398,7 +418,14 @@ func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.U
 		return
 	}
 
+{% if resource.has_tags %}
+	priorTags, priorTagsAll := data.Tags, data.TagsAll
+{% endif %}
 {{ response_mapping(resource.fields, "resp", "data", "\t") }}
+{% if resource.has_tags %}
+	data.TagsAll = data.Tags
+	data.Tags = resourceTagsValue(ctx, r.client, data.TagsAll, priorTags, priorTagsAll, &response.Diagnostics)
+{% endif %}
 {% if resource.store_post_response %}
 
 	// Restore invitation from state
@@ -441,6 +468,9 @@ func (r *{{ resource.name }}Resource) Update(ctx context.Context, req resource.U
 
 // ModifyPlan keeps the prior state when no configured attribute changes, so that
 // unconfigured computed attributes don't go unknown and plan an empty update.
+{% if resource.has_tags %}
+// tags_all is planned afterwards, so changed provider default_tags still update it.
+{% endif %}
 func (r *{{ resource.name }}Resource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	unchanged, err := planUnchanged(req)
 	if err != nil {
@@ -450,10 +480,13 @@ func (r *{{ resource.name }}Resource) ModifyPlan(ctx context.Context, req resour
 	if unchanged {
 		resp.Plan.Raw = req.State.Raw
 	}
+{% if resource.has_tags %}
+	planTagsAll(ctx, r.client, req, resp)
+{% endif %}
 }
 
 func (r *{{ resource.name }}Resource) Delete(ctx context.Context, req resource.DeleteRequest, response *resource.DeleteResponse) {
-	var data {{ resource.name }}Model
+	var data {{ resource.name }}ResourceModel
 	response.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if response.Diagnostics.HasError() {
 		return

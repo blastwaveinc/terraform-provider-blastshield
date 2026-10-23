@@ -21,8 +21,23 @@ type BlastshieldProvider struct {
 }
 
 type BlastshieldProviderModel struct {
-	Host  types.String `tfsdk:"host"`
-	Token types.String `tfsdk:"token"`
+	Host        types.String `tfsdk:"host"`
+	Token       types.String `tfsdk:"token"`
+	DefaultTags types.Map    `tfsdk:"default_tags"`
+}
+
+// ProviderData is passed to resources and data sources: the API client plus
+// provider-level settings.
+type ProviderData struct {
+	*Client
+	defaultTags      map[string]string
+	defaultTagsKnown bool
+}
+
+// DefaultTags returns the provider default_tags. known is false while the
+// provider configuration still contains unknown values.
+func (d *ProviderData) DefaultTags() (map[string]string, bool) {
+	return d.defaultTags, d.defaultTagsKnown
 }
 
 func (p *BlastshieldProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -42,6 +57,12 @@ func (p *BlastshieldProvider) Schema(ctx context.Context, req provider.SchemaReq
 				Description: "The Blastshield API token. Can also be set via the BLASTSHIELD_TOKEN environment variable.",
 				Optional:    true,
 				Sensitive:   true,
+			},
+			"default_tags": schema.MapAttribute{
+				Description: "Tags applied to all resources that support tags. Resource-level tags take precedence on key conflicts. " +
+					"The merged result is exposed in each resource's tags_all attribute.",
+				ElementType: types.StringType,
+				Optional:    true,
 			},
 		},
 	}
@@ -89,12 +110,32 @@ func (p *BlastshieldProvider) Configure(ctx context.Context, req provider.Config
 		return
 	}
 
-	// Create API client
-	client := NewClient(host, token)
+	data := &ProviderData{
+		Client:           NewClient(host, token),
+		defaultTagsKnown: true,
+	}
+	if config.DefaultTags.IsUnknown() {
+		data.defaultTagsKnown = false
+	} else {
+		for _, v := range config.DefaultTags.Elements() {
+			if v.IsUnknown() {
+				data.defaultTagsKnown = false
+			}
+		}
+	}
+	if data.defaultTagsKnown && !config.DefaultTags.IsNull() {
+		data.defaultTags = make(map[string]string)
+		for k, v := range config.DefaultTags.Elements() {
+			// A null value (e.g. from an unset variable) leaves the tag out
+			if s, ok := v.(types.String); ok && !s.IsNull() {
+				data.defaultTags[k] = s.ValueString()
+			}
+		}
+	}
 
 	// Make the client available to resources and data sources
-	resp.DataSourceData = client
-	resp.ResourceData = client
+	resp.DataSourceData = data
+	resp.ResourceData = data
 }
 
 func (p *BlastshieldProvider) Resources(ctx context.Context) []func() resource.Resource {
